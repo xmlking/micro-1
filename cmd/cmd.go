@@ -2,41 +2,37 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
-	ccli "github.com/micro/cli"
-	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/config/cmd"
-	gorun "github.com/micro/go-micro/runtime"
-	"github.com/micro/go-micro/util/log"
-	"github.com/micro/micro/api"
-	"github.com/micro/micro/bot"
-	"github.com/micro/micro/broker"
-	"github.com/micro/micro/cli"
-	"github.com/micro/micro/debug"
-	"github.com/micro/micro/health"
-	"github.com/micro/micro/monitor"
-	"github.com/micro/micro/network"
-	"github.com/micro/micro/new"
-	"github.com/micro/micro/plugin"
-	"github.com/micro/micro/plugin/build"
-	"github.com/micro/micro/proxy"
-	"github.com/micro/micro/registry"
-	"github.com/micro/micro/router"
-	"github.com/micro/micro/runtime"
-	"github.com/micro/micro/server"
-	"github.com/micro/micro/service"
-	"github.com/micro/micro/store"
-	"github.com/micro/micro/token"
-	"github.com/micro/micro/tunnel"
-	"github.com/micro/micro/web"
+	ccli "github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/config/cmd"
+	"github.com/micro/micro/v2/api"
+	"github.com/micro/micro/v2/bot"
+	"github.com/micro/micro/v2/broker"
+	"github.com/micro/micro/v2/cli"
+	"github.com/micro/micro/v2/config"
+	"github.com/micro/micro/v2/debug"
+	"github.com/micro/micro/v2/health"
+	"github.com/micro/micro/v2/monitor"
+	"github.com/micro/micro/v2/network"
+	"github.com/micro/micro/v2/new"
+	"github.com/micro/micro/v2/plugin"
+	"github.com/micro/micro/v2/plugin/build"
+	"github.com/micro/micro/v2/proxy"
+	"github.com/micro/micro/v2/registry"
+	"github.com/micro/micro/v2/router"
+	"github.com/micro/micro/v2/runtime"
+	"github.com/micro/micro/v2/server"
+	"github.com/micro/micro/v2/service"
+	"github.com/micro/micro/v2/store"
+	"github.com/micro/micro/v2/token"
+	"github.com/micro/micro/v2/tunnel"
+	"github.com/micro/micro/v2/web"
 
 	// include usage
 
-	"github.com/micro/micro/internal/update"
-	_ "github.com/micro/micro/internal/usage"
+	"github.com/micro/micro/v2/internal/platform"
+	_ "github.com/micro/micro/v2/internal/usage"
 )
 
 var (
@@ -46,129 +42,138 @@ var (
 
 	name        = "micro"
 	description = "A microservice runtime"
-	version     = "1.18.0"
+	version     = "2.0.0"
 )
 
 func init() {
+	// setup the build plugin
 	plugin.Register(build.Flags())
+
+	// set platform build date
+	platform.Version = BuildDate
 }
 
 func setup(app *ccli.App) {
 	app.Flags = append(app.Flags,
-		ccli.BoolFlag{
+		&ccli.BoolFlag{
 			Name:  "local",
-			Usage: "Enable local only development",
+			Usage: "Enable local only development: Defaults to true.",
 		},
-		ccli.BoolFlag{
-			Name:   "enable_acme",
-			Usage:  "Enables ACME support via Let's Encrypt. ACME hosts should also be specified.",
-			EnvVar: "MICRO_ENABLE_ACME",
+		&ccli.BoolFlag{
+			Name:  "peer",
+			Usage: "Peer with the global network to share services",
 		},
-		ccli.StringFlag{
-			Name:   "acme_hosts",
-			Usage:  "Comma separated list of hostnames to manage ACME certs for",
-			EnvVar: "MICRO_ACME_HOSTS",
+		&ccli.BoolFlag{
+			Name:    "enable_acme",
+			Usage:   "Enables ACME support via Let's Encrypt. ACME hosts should also be specified.",
+			EnvVars: []string{"MICRO_ENABLE_ACME"},
 		},
-		ccli.StringFlag{
-			Name:   "acme_provider",
-			Usage:  "The provider that will be used to communicate with Let's Encrypt. Valid options: autocert, certmagic",
-			EnvVar: "MICRO_ACME_PROVIDER",
+		&ccli.StringFlag{
+			Name:    "acme_hosts",
+			Usage:   "Comma separated list of hostnames to manage ACME certs for",
+			EnvVars: []string{"MICRO_ACME_HOSTS"},
 		},
-		ccli.BoolFlag{
-			Name:   "enable_tls",
-			Usage:  "Enable TLS support. Expects cert and key file to be specified",
-			EnvVar: "MICRO_ENABLE_TLS",
+		&ccli.StringFlag{
+			Name:    "acme_provider",
+			Usage:   "The provider that will be used to communicate with Let's Encrypt. Valid options: autocert, certmagic",
+			EnvVars: []string{"MICRO_ACME_PROVIDER"},
 		},
-		ccli.StringFlag{
-			Name:   "tls_cert_file",
-			Usage:  "Path to the TLS Certificate file",
-			EnvVar: "MICRO_TLS_CERT_FILE",
+		&ccli.BoolFlag{
+			Name:    "enable_tls",
+			Usage:   "Enable TLS support. Expects cert and key file to be specified",
+			EnvVars: []string{"MICRO_ENABLE_TLS"},
 		},
-		ccli.StringFlag{
-			Name:   "tls_key_file",
-			Usage:  "Path to the TLS Key file",
-			EnvVar: "MICRO_TLS_KEY_FILE",
+		&ccli.StringFlag{
+			Name:    "tls_cert_file",
+			Usage:   "Path to the TLS Certificate file",
+			EnvVars: []string{"MICRO_TLS_CERT_FILE"},
 		},
-		ccli.StringFlag{
-			Name:   "tls_client_ca_file",
-			Usage:  "Path to the TLS CA file to verify clients against",
-			EnvVar: "MICRO_TLS_CLIENT_CA_FILE",
+		&ccli.StringFlag{
+			Name:    "tls_key_file",
+			Usage:   "Path to the TLS Key file",
+			EnvVars: []string{"MICRO_TLS_KEY_FILE"},
 		},
-		ccli.StringFlag{
-			Name:   "api_address",
-			Usage:  "Set the api address e.g 0.0.0.0:8080",
-			EnvVar: "MICRO_API_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "tls_client_ca_file",
+			Usage:   "Path to the TLS CA file to verify clients against",
+			EnvVars: []string{"MICRO_TLS_CLIENT_CA_FILE"},
 		},
-		ccli.StringFlag{
-			Name:   "proxy_address",
-			Usage:  "Proxy requests via the HTTP address specified",
-			EnvVar: "MICRO_PROXY_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "api_address",
+			Usage:   "Set the api address e.g 0.0.0.0:8080",
+			EnvVars: []string{"MICRO_API_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "web_address",
-			Usage:  "Set the web UI address e.g 0.0.0.0:8082",
-			EnvVar: "MICRO_WEB_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "proxy_address",
+			Usage:   "Proxy requests via the HTTP address specified",
+			EnvVars: []string{"MICRO_PROXY_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "network",
-			Usage:  "Set the micro network name: local, go.micro",
-			EnvVar: "MICRO_NETWORK",
+		&ccli.StringFlag{
+			Name:    "web_address",
+			Usage:   "Set the web UI address e.g 0.0.0.0:8082",
+			EnvVars: []string{"MICRO_WEB_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "network_address",
-			Usage:  "Set the micro network address e.g. :9093",
-			EnvVar: "MICRO_NETWORK_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "network",
+			Usage:   "Set the micro network name: local, go.micro",
+			EnvVars: []string{"MICRO_NETWORK"},
 		},
-		ccli.StringFlag{
-			Name:   "router_address",
-			Usage:  "Set the micro router address e.g. :8084",
-			EnvVar: "MICRO_ROUTER_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "network_address",
+			Usage:   "Set the micro network address e.g. :9093",
+			EnvVars: []string{"MICRO_NETWORK_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "gateway_address",
-			Usage:  "Set the micro default gateway address e.g. :9094",
-			EnvVar: "MICRO_GATEWAY_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "router_address",
+			Usage:   "Set the micro router address e.g. :8084",
+			EnvVars: []string{"MICRO_ROUTER_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "tunnel_address",
-			Usage:  "Set the micro tunnel address e.g. :8083",
-			EnvVar: "MICRO_TUNNEL_ADDRESS",
+		&ccli.StringFlag{
+			Name:    "gateway_address",
+			Usage:   "Set the micro default gateway address e.g. :9094",
+			EnvVars: []string{"MICRO_GATEWAY_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "api_handler",
-			Usage:  "Specify the request handler to be used for mapping HTTP requests to services; {api, proxy, rpc}",
-			EnvVar: "MICRO_API_HANDLER",
+		&ccli.StringFlag{
+			Name:    "tunnel_address",
+			Usage:   "Set the micro tunnel address e.g. :8083",
+			EnvVars: []string{"MICRO_TUNNEL_ADDRESS"},
 		},
-		ccli.StringFlag{
-			Name:   "api_namespace",
-			Usage:  "Set the namespace used by the API e.g. com.example.api",
-			EnvVar: "MICRO_API_NAMESPACE",
+		&ccli.StringFlag{
+			Name:    "api_handler",
+			Usage:   "Specify the request handler to be used for mapping HTTP requests to services; {api, proxy, rpc}",
+			EnvVars: []string{"MICRO_API_HANDLER"},
 		},
-		ccli.StringFlag{
-			Name:   "web_namespace",
-			Usage:  "Set the namespace used by the Web proxy e.g. com.example.web",
-			EnvVar: "MICRO_WEB_NAMESPACE",
+		&ccli.StringFlag{
+			Name:    "api_namespace",
+			Usage:   "Set the namespace used by the API e.g. com.example.api",
+			EnvVars: []string{"MICRO_API_NAMESPACE"},
 		},
-		ccli.BoolFlag{
-			Name:   "enable_stats",
-			Usage:  "Enable stats",
-			EnvVar: "MICRO_ENABLE_STATS",
+		&ccli.StringFlag{
+			Name:    "web_namespace",
+			Usage:   "Set the namespace used by the Web proxy e.g. com.example.web",
+			EnvVars: []string{"MICRO_WEB_NAMESPACE"},
 		},
-		ccli.BoolFlag{
-			Name:   "auto_update",
-			Usage:  "Enable automatic updates",
-			EnvVar: "MICRO_AUTO_UPDATE",
+		&ccli.BoolFlag{
+			Name:    "enable_stats",
+			Usage:   "Enable stats",
+			EnvVars: []string{"MICRO_ENABLE_STATS"},
 		},
-		ccli.BoolTFlag{
-			Name:   "report_usage",
-			Usage:  "Report usage statistics",
-			EnvVar: "MICRO_REPORT_USAGE",
+		&ccli.BoolFlag{
+			Name:    "auto_update",
+			Usage:   "Enable automatic updates",
+			EnvVars: []string{"MICRO_AUTO_UPDATE"},
 		},
-		ccli.StringFlag{
-			Name:   "namespace",
-			Usage:  "Set the micro service namespace",
-			EnvVar: "MICRO_NAMESPACE",
-			Value:  "go.micro",
+		&ccli.BoolFlag{
+			Name:    "report_usage",
+			Usage:   "Report usage statistics",
+			EnvVars: []string{"MICRO_REPORT_USAGE"},
+			Value:   true,
+		},
+		&ccli.StringFlag{
+			Name:    "namespace",
+			Usage:   "Set the micro service namespace",
+			EnvVars: []string{"MICRO_NAMESPACE"},
+			Value:   "go.micro",
 		},
 	)
 
@@ -278,136 +283,21 @@ func Setup(app *ccli.App, options ...micro.Option) {
 	app.Commands = append(app.Commands, new.Commands()...)
 	app.Commands = append(app.Commands, build.Commands()...)
 	app.Commands = append(app.Commands, web.Commands(options...)...)
+	app.Commands = append(app.Commands, config.Commands(options...)...)
 
 	// add the init command for our internal operator
-	app.Commands = append(app.Commands, ccli.Command{
+	app.Commands = append(app.Commands, &ccli.Command{
 		Name:  "init",
 		Usage: "Run the micro operator",
-		Action: func(c *ccli.Context) {
-			initCommand(c)
+		Action: func(c *ccli.Context) error {
+			platform.Init(c)
+			return nil
 		},
 		Flags: []ccli.Flag{},
 	})
 
-	// boot micro
-	app.Action = func(context *ccli.Context) {
-		log.Name("micro")
-
-		if len(context.Args()) > 0 {
-			ccli.ShowSubcommandHelp(context)
-			os.Exit(1)
-		}
-
-		// get the network flag
-		network := context.GlobalString("network")
-		local := context.GlobalBool("local")
-
-		// pass through the environment
-		// TODO: perhaps don't do this
-		env := os.Environ()
-
-		if network == "local" || local {
-			// no op for now
-			log.Info("Setting local network")
-		} else {
-			log.Info("Setting global network")
-
-			if v := os.Getenv("MICRO_NETWORK_RESOLVER"); len(v) == 0 {
-				// set the resolver to use https://micro.mu/network
-				env = append(env, "MICRO_NETWORK_RESOLVER=http")
-				log.Log("Setting default network resolver")
-			}
-			if v := os.Getenv("MICRO_NETWORK_TOKEN"); len(v) == 0 {
-				// set the network token
-				env = append(env, "MICRO_NETWORK_TOKEN=micro.mu")
-				log.Log("Setting default network token")
-			}
-		}
-
-		log.Info("Loading core services")
-
-		services := []string{
-			"network",  // :8085
-			"runtime",  // :8088
-			"registry", // :8000
-			"broker",   // :8001
-			"store",    // :8002
-			"tunnel",   // :8083
-			"router",   // :8084
-			"monitor",  // :????
-			"debug",    // :????
-			"proxy",    // :8081
-			"api",      // :8080
-			"web",      // :8082
-			"bot",      // :????
-		}
-
-		// create new micro runtime
-		muRuntime := cmd.DefaultCmd.Options().Runtime
-
-		// Use default update notifier
-		if context.GlobalBool("auto_update") {
-			options := []gorun.Option{
-				gorun.WithNotifier(update.NewNotifier(BuildDate)),
-			}
-			(*muRuntime).Init(options...)
-		}
-
-		for _, service := range services {
-			name = service
-			if namespace := context.GlobalString("namespace"); len(namespace) > 0 {
-				name = fmt.Sprintf("%s.%s", namespace, service)
-			}
-
-			log.Infof("Registering %s\n", name)
-
-			// runtime based on environment we run the service in
-			args := []gorun.CreateOption{
-				gorun.WithCommand(os.Args[0], service),
-				gorun.WithEnv(env),
-				gorun.WithOutput(os.Stdout),
-			}
-
-			// NOTE: we use BuildDate right now to check for the latest release
-			muService := &gorun.Service{Name: name, Version: BuildDate}
-			if err := (*muRuntime).Create(muService, args...); err != nil {
-				log.Errorf("Failed to create runtime enviroment: %v", err)
-				return
-			}
-		}
-
-		shutdown := make(chan os.Signal, 1)
-		signal.Notify(shutdown, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
-		log.Info("Starting service runtime")
-
-		// start the runtime
-		if err := (*muRuntime).Start(); err != nil {
-			log.Fatal(err)
-		}
-
-		log.Info("Service runtime started")
-
-		// TODO: should we launch the console?
-		// start the console
-		// cli.Init(context)
-
-		select {
-		case <-shutdown:
-			log.Info("Shutdown signal received")
-			log.Info("Stopping service runtime")
-		}
-
-		// stop all the things
-		if err := (*muRuntime).Stop(); err != nil {
-			log.Fatal(err)
-		}
-
-		log.Info("Service runtime shutdown")
-
-		// exit success
-		os.Exit(0)
-	}
+	// boot micro runtime
+	app.Action = platform.Run
 
 	setup(app)
 }

@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/micro/cli"
-	tmpl "github.com/micro/micro/internal/template"
-	"github.com/micro/micro/internal/usage"
+	"github.com/micro/cli/v2"
+	tmpl "github.com/micro/micro/v2/internal/template"
+	"github.com/micro/micro/v2/internal/usage"
 	"github.com/xlab/treeprint"
 )
 
@@ -35,6 +35,8 @@ type config struct {
 	GoDir string
 	// $GOPATH
 	GoPath string
+	// UseGoPath
+	UseGoPath bool
 	// Files
 	Files []file
 	// Comments
@@ -242,6 +244,7 @@ func run(ctx *cli.Context) {
 			Dir:       dir,
 			GoDir:     goDir,
 			GoPath:    goPath,
+			UseGoPath: useGoPath,
 			Plugins:   plugins,
 			Files: []file{
 				{"main.go", tmpl.MainFNC},
@@ -275,6 +278,7 @@ func run(ctx *cli.Context) {
 			Dir:       dir,
 			GoDir:     goDir,
 			GoPath:    goPath,
+			UseGoPath: useGoPath,
 			Plugins:   plugins,
 			Files: []file{
 				{"main.go", tmpl.MainSRV},
@@ -308,6 +312,7 @@ func run(ctx *cli.Context) {
 			Dir:       dir,
 			GoDir:     goDir,
 			GoPath:    goPath,
+			UseGoPath: useGoPath,
 			Plugins:   plugins,
 			Files: []file{
 				{"main.go", tmpl.MainAPI},
@@ -341,6 +346,7 @@ func run(ctx *cli.Context) {
 			Dir:       dir,
 			GoDir:     goDir,
 			GoPath:    goPath,
+			UseGoPath: useGoPath,
 			Plugins:   plugins,
 			Files: []file{
 				{"main.go", tmpl.MainWEB},
@@ -359,7 +365,7 @@ func run(ctx *cli.Context) {
 	}
 
 	// set gomodule
-	if useGoModule == "on" || useGoModule == "auto" {
+	if useGoModule != "off" {
 		c.Files = append(c.Files, file{"go.mod", tmpl.Module})
 	}
 
@@ -369,41 +375,42 @@ func run(ctx *cli.Context) {
 	}
 }
 
-func Commands() []cli.Command {
-	return []cli.Command{
+func Commands() []*cli.Command {
+	return []*cli.Command{
 		{
 			Name:  "new",
 			Usage: "Create a service template",
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "namespace",
 					Usage: "Namespace for the service e.g com.example",
 					Value: "go.micro",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "type",
 					Usage: "Type of service e.g api, fnc, srv, web",
 					Value: "srv",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "fqdn",
 					Usage: "FQDN of service e.g com.example.srv.service (defaults to namespace.type.alias)",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "alias",
 					Usage: "Alias is the short name used as part of combined name if specified",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Name:  "plugin",
 					Usage: "Specify plugins e.g --plugin=registry=etcd:broker=nats or use flag multiple times",
 				},
-				cli.BoolTFlag{
+				&cli.BoolFlag{
 					Name:  "gopath",
-					Usage: "Create the service in the gopath. Defaults to true.",
+					Usage: "Create the service in the gopath.",
 				},
 			},
-			Action: func(c *cli.Context) {
+			Action: func(c *cli.Context) error {
 				run(c)
+				return nil
 			},
 		},
 	}

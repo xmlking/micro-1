@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro"
-	goapi "github.com/micro/go-micro/api"
-	"github.com/micro/go-micro/network"
-	"github.com/micro/go-micro/network/resolver"
-	pb "github.com/micro/go-micro/network/service/proto"
-	"github.com/micro/go-micro/util/log"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2"
+	goapi "github.com/micro/go-micro/v2/api"
+	"github.com/micro/go-micro/v2/network"
+	"github.com/micro/go-micro/v2/network/resolver"
+	pb "github.com/micro/go-micro/v2/network/service/proto"
+	"github.com/micro/go-micro/v2/util/log"
 )
 
 var (

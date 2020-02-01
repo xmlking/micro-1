@@ -2,12 +2,12 @@
 package monitor
 
 import (
-	"github.com/micro/cli"
-	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/monitor"
-	"github.com/micro/go-micro/util/log"
-	"github.com/micro/micro/monitor/handler"
-	pb "github.com/micro/micro/monitor/proto"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/monitor"
+	"github.com/micro/go-micro/v2/util/log"
+	"github.com/micro/micro/v2/monitor/handler"
+	pb "github.com/micro/micro/v2/monitor/proto"
 )
 
 var (
@@ -47,18 +47,19 @@ func run(ctx *cli.Context, opts ...micro.Option) {
 	service.Run()
 }
 
-func Commands(options ...micro.Option) []cli.Command {
-	command := cli.Command{
+func Commands(options ...micro.Option) []*cli.Command {
+	command := &cli.Command{
 		Name:  "monitor",
 		Usage: "Run the monitoring service",
-		Action: func(ctx *cli.Context) {
+		Action: func(ctx *cli.Context) error {
 			run(ctx, options...)
+			return nil
 		},
 		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:   "service",
-				Usage:  "Name of the micro service to monitor",
-				EnvVar: "MICRO_SERVICE_NAME",
+			&cli.StringFlag{
+				Name:    "service",
+				Usage:   "Name of the micro service to monitor",
+				EnvVars: []string{"MICRO_SERVICE_NAME"},
 			},
 		},
 	}
@@ -73,5 +74,5 @@ func Commands(options ...micro.Option) []cli.Command {
 		}
 	}
 
-	return []cli.Command{command}
+	return []*cli.Command{command}
 }

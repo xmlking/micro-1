@@ -8,28 +8,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro"
-	"github.com/micro/go-micro/network"
-	"github.com/micro/go-micro/network/resolver"
-	"github.com/micro/go-micro/network/resolver/dns"
-	"github.com/micro/go-micro/network/resolver/http"
-	"github.com/micro/go-micro/network/resolver/registry"
-	"github.com/micro/go-micro/proxy"
-	"github.com/micro/go-micro/proxy/mucp"
-	"github.com/micro/go-micro/router"
-	"github.com/micro/go-micro/server"
-	"github.com/micro/go-micro/transport"
-	"github.com/micro/go-micro/transport/quic"
-	"github.com/micro/go-micro/tunnel"
-	"github.com/micro/go-micro/util/log"
-	"github.com/micro/go-micro/util/mux"
-	mcli "github.com/micro/micro/cli"
-	"github.com/micro/micro/internal/helper"
-	"github.com/micro/micro/network/api"
-	netdns "github.com/micro/micro/network/dns"
-	"github.com/micro/micro/network/handler"
-	"github.com/micro/micro/network/web"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2"
+	"github.com/micro/go-micro/v2/network"
+	"github.com/micro/go-micro/v2/network/resolver"
+	"github.com/micro/go-micro/v2/network/resolver/dns"
+	"github.com/micro/go-micro/v2/network/resolver/http"
+	"github.com/micro/go-micro/v2/network/resolver/registry"
+	"github.com/micro/go-micro/v2/proxy"
+	"github.com/micro/go-micro/v2/proxy/mucp"
+	"github.com/micro/go-micro/v2/router"
+	"github.com/micro/go-micro/v2/server"
+	"github.com/micro/go-micro/v2/transport"
+	"github.com/micro/go-micro/v2/transport/quic"
+	"github.com/micro/go-micro/v2/tunnel"
+	"github.com/micro/go-micro/v2/util/log"
+	"github.com/micro/go-micro/v2/util/mux"
+	mcli "github.com/micro/micro/v2/cli"
+	"github.com/micro/micro/v2/internal/helper"
+	"github.com/micro/micro/v2/network/api"
+	netdns "github.com/micro/micro/v2/network/dns"
+	"github.com/micro/micro/v2/network/handler"
+	"github.com/micro/micro/v2/network/web"
 )
 
 var (
@@ -51,7 +51,7 @@ var (
 func run(ctx *cli.Context, srvOpts ...micro.Option) {
 	log.Name("network")
 
-	if len(ctx.Args()) > 0 {
+	if ctx.Args().Len() > 0 {
 		cli.ShowSubcommandHelp(ctx)
 		os.Exit(1)
 	}
@@ -61,8 +61,8 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		p.Init(ctx)
 	}
 
-	if len(ctx.GlobalString("server_name")) > 0 {
-		Name = ctx.GlobalString("server_name")
+	if len(ctx.String("server_name")) > 0 {
+		Name = ctx.String("server_name")
 	}
 	if len(ctx.String("address")) > 0 {
 		Address = ctx.String("address")
@@ -112,8 +112,8 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 	// Initialise service
 	service := micro.NewService(
 		micro.Name(Name),
-		micro.RegisterTTL(time.Duration(ctx.GlobalInt("register_ttl"))*time.Second),
-		micro.RegisterInterval(time.Duration(ctx.GlobalInt("register_interval"))*time.Second),
+		micro.RegisterTTL(time.Duration(ctx.Int("register_ttl"))*time.Second),
+		micro.RegisterInterval(time.Duration(ctx.Int("register_interval"))*time.Second),
 	)
 
 	// create a tunnel
@@ -122,7 +122,7 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		tunnel.Token(Token),
 	}
 
-	if ctx.GlobalBool("enable_tls") {
+	if ctx.Bool("enable_tls") {
 		config, err := helper.TLSConfig(ctx)
 		if err != nil {
 			fmt.Println(err.Error())
@@ -137,11 +137,12 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 
 	gateway := ctx.String("gateway")
 	tun := tunnel.NewTunnel(tunOpts...)
+	id := service.Server().Options().Id
 
 	// local tunnel router
 	rtr := router.NewRouter(
 		router.Network(Network),
-		router.Id(service.Server().Options().Id),
+		router.Id(id),
 		router.Registry(service.Client().Options().Registry),
 		router.Advertise(strategy),
 		router.Gateway(gateway),
@@ -149,7 +150,7 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 
 	// create new network
 	net := network.NewNetwork(
-		network.Id(service.Server().Options().Id),
+		network.Id(id),
 		network.Name(Network),
 		network.Address(Address),
 		network.Advertise(Advertise),
@@ -211,10 +212,10 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		}
 	}
 
-	log.Logf("Network [%s] listening on %s", Name, Address)
+	log.Logf("Network [%s] listening on %s", Network, Address)
 
 	if err := service.Run(); err != nil {
-		log.Logf("Network %s failed: %v", Name, err)
+		log.Logf("Network %s failed: %v", Network, err)
 		netClose(net)
 		os.Exit(1)
 	}
@@ -223,59 +224,60 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 	netClose(net)
 }
 
-func Commands(options ...micro.Option) []cli.Command {
-	command := cli.Command{
+func Commands(options ...micro.Option) []*cli.Command {
+	command := &cli.Command{
 		Name:  "network",
 		Usage: "Run the micro network node",
 		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:   "address",
-				Usage:  "Set the micro network address :8085",
-				EnvVar: "MICRO_NETWORK_ADDRESS",
+			&cli.StringFlag{
+				Name:    "address",
+				Usage:   "Set the micro network address :8085",
+				EnvVars: []string{"MICRO_NETWORK_ADDRESS"},
 			},
-			cli.StringFlag{
-				Name:   "advertise",
-				Usage:  "Set the micro network address to advertise",
-				EnvVar: "MICRO_NETWORK_ADVERTISE",
+			&cli.StringFlag{
+				Name:    "advertise",
+				Usage:   "Set the micro network address to advertise",
+				EnvVars: []string{"MICRO_NETWORK_ADVERTISE"},
 			},
-			cli.StringFlag{
-				Name:   "gateway",
-				Usage:  "Set the default gateway",
-				EnvVar: "MICRO_NETWORK_GATEWAY",
+			&cli.StringFlag{
+				Name:    "gateway",
+				Usage:   "Set the default gateway",
+				EnvVars: []string{"MICRO_NETWORK_GATEWAY"},
 			},
-			cli.StringFlag{
-				Name:   "network",
-				Usage:  "Set the micro network name: go.micro",
-				EnvVar: "MICRO_NETWORK",
+			&cli.StringFlag{
+				Name:    "network",
+				Usage:   "Set the micro network name: go.micro",
+				EnvVars: []string{"MICRO_NETWORK"},
 			},
-			cli.StringFlag{
-				Name:   "nodes",
-				Usage:  "Set the micro network nodes to connect to. This can be a comma separated list.",
-				EnvVar: "MICRO_NETWORK_NODES",
+			&cli.StringFlag{
+				Name:    "nodes",
+				Usage:   "Set the micro network nodes to connect to. This can be a comma separated list.",
+				EnvVars: []string{"MICRO_NETWORK_NODES"},
 			},
-			cli.StringFlag{
-				Name:   "token",
-				Usage:  "Set the micro network token for authentication",
-				EnvVar: "MICRO_NETWORK_TOKEN",
+			&cli.StringFlag{
+				Name:    "token",
+				Usage:   "Set the micro network token for authentication",
+				EnvVars: []string{"MICRO_NETWORK_TOKEN"},
 			},
-			cli.StringFlag{
-				Name:   "resolver",
-				Usage:  "Set the micro network resolver. This can be a comma separated list.",
-				EnvVar: "MICRO_NETWORK_RESOLVER",
+			&cli.StringFlag{
+				Name:    "resolver",
+				Usage:   "Set the micro network resolver. This can be a comma separated list.",
+				EnvVars: []string{"MICRO_NETWORK_RESOLVER"},
 			},
-			cli.StringFlag{
-				Name:   "advertise_strategy",
-				Usage:  "Set the route advertise strategy; all, best, local, none",
-				EnvVar: "MICRO_NETWORK_ADVERTISE_STRATEGY",
+			&cli.StringFlag{
+				Name:    "advertise_strategy",
+				Usage:   "Set the route advertise strategy; all, best, local, none",
+				EnvVars: []string{"MICRO_NETWORK_ADVERTISE_STRATEGY"},
 			},
 		},
-		Subcommands: append([]cli.Command{
+		Subcommands: append([]*cli.Command{
 			{
 				Name:        "api",
 				Usage:       "Run the network api",
 				Description: "Run the network api",
-				Action: func(ctx *cli.Context) {
+				Action: func(ctx *cli.Context) error {
 					api.Run(ctx)
+					return nil
 				},
 			},
 			{
@@ -283,30 +285,31 @@ func Commands(options ...micro.Option) []cli.Command {
 				Usage:       "Start a DNS resolver service that registers core nodes in DNS",
 				Description: "Start a DNS resolver service that registers core nodes in DNS",
 				Flags: []cli.Flag{
-					cli.StringFlag{
-						Name:   "provider",
-						Usage:  "The DNS provider to use. Currently, only cloudflare is implemented",
-						EnvVar: "MICRO_NETWORK_DNS_PROVIDER",
-						Value:  "cloudflare",
+					&cli.StringFlag{
+						Name:    "provider",
+						Usage:   "The DNS provider to use. Currently, only cloudflare is implemented",
+						EnvVars: []string{"MICRO_NETWORK_DNS_PROVIDER"},
+						Value:   "cloudflare",
 					},
-					cli.StringFlag{
-						Name:   "api-token",
-						Usage:  "The provider's API Token.",
-						EnvVar: "MICRO_NETWORK_DNS_API_TOKEN",
+					&cli.StringFlag{
+						Name:    "api-token",
+						Usage:   "The provider's API Token.",
+						EnvVars: []string{"MICRO_NETWORK_DNS_API_TOKEN"},
 					},
-					cli.StringFlag{
-						Name:   "zone-id",
-						Usage:  "The provider's Zone ID.",
-						EnvVar: "MICRO_NETWORK_DNS_ZONE_ID",
+					&cli.StringFlag{
+						Name:    "zone-id",
+						Usage:   "The provider's Zone ID.",
+						EnvVars: []string{"MICRO_NETWORK_DNS_ZONE_ID"},
 					},
-					cli.StringFlag{
-						Name:   "token",
-						Usage:  "Shared secret that must be presented to the service to authorize requests.",
-						EnvVar: "MICRO_NETWORK_DNS_TOKEN",
+					&cli.StringFlag{
+						Name:    "token",
+						Usage:   "Shared secret that must be presented to the service to authorize requests.",
+						EnvVars: []string{"MICRO_NETWORK_DNS_TOKEN"},
 					},
 				},
-				Action: func(ctx *cli.Context) {
+				Action: func(ctx *cli.Context) error {
 					netdns.Run(ctx)
+					return nil
 				},
 				Subcommands: mcli.NetworkDNSCommands(),
 			},
@@ -314,13 +317,15 @@ func Commands(options ...micro.Option) []cli.Command {
 				Name:        "web",
 				Usage:       "Run the network web dashboard",
 				Description: "Run the network web dashboard",
-				Action: func(ctx *cli.Context) {
+				Action: func(ctx *cli.Context) error {
 					web.Run(ctx)
+					return nil
 				},
 			},
 		}, mcli.NetworkCommands()...),
-		Action: func(ctx *cli.Context) {
+		Action: func(ctx *cli.Context) error {
 			run(ctx, options...)
+			return nil
 		},
 	}
 
@@ -334,5 +339,5 @@ func Commands(options ...micro.Option) []cli.Command {
 		}
 	}
 
-	return []cli.Command{command}
+	return []*cli.Command{command}
 }

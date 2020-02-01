@@ -6,23 +6,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro"
-	bmem "github.com/micro/go-micro/broker/memory"
-	"github.com/micro/go-micro/client"
-	"github.com/micro/go-micro/proxy"
-	"github.com/micro/go-micro/proxy/grpc"
-	"github.com/micro/go-micro/proxy/http"
-	"github.com/micro/go-micro/proxy/mucp"
-	"github.com/micro/go-micro/registry"
-	rmem "github.com/micro/go-micro/registry/memory"
-	"github.com/micro/go-micro/router"
-	rs "github.com/micro/go-micro/router/service"
-	"github.com/micro/go-micro/server"
-	sgrpc "github.com/micro/go-micro/server/grpc"
-	smucp "github.com/micro/go-micro/server/mucp"
-	"github.com/micro/go-micro/util/log"
-	"github.com/micro/go-micro/util/mux"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2"
+	bmem "github.com/micro/go-micro/v2/broker/memory"
+	"github.com/micro/go-micro/v2/client"
+	mucli "github.com/micro/go-micro/v2/client"
+	"github.com/micro/go-micro/v2/proxy"
+	"github.com/micro/go-micro/v2/proxy/grpc"
+	"github.com/micro/go-micro/v2/proxy/http"
+	"github.com/micro/go-micro/v2/proxy/mucp"
+	"github.com/micro/go-micro/v2/registry"
+	rmem "github.com/micro/go-micro/v2/registry/memory"
+	"github.com/micro/go-micro/v2/router"
+	rs "github.com/micro/go-micro/v2/router/service"
+	"github.com/micro/go-micro/v2/server"
+	sgrpc "github.com/micro/go-micro/v2/server/grpc"
+	"github.com/micro/go-micro/v2/util/log"
+	"github.com/micro/go-micro/v2/util/mux"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 	// The address of the proxy
 	Address = ":8081"
 	// the proxy protocol
-	Protocol = "mucp"
+	Protocol = "grpc"
 	// The endpoint host to route to
 	Endpoint string
 )
@@ -39,8 +39,8 @@ var (
 func run(ctx *cli.Context, srvOpts ...micro.Option) {
 	log.Name("proxy")
 
-	if len(ctx.GlobalString("server_name")) > 0 {
-		Name = ctx.GlobalString("server_name")
+	if len(ctx.String("server_name")) > 0 {
+		Name = ctx.String("server_name")
 	}
 	if len(ctx.String("address")) > 0 {
 		Address = ctx.String("address")
@@ -59,10 +59,10 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 
 	// service opts
 	srvOpts = append(srvOpts, micro.Name(Name))
-	if i := time.Duration(ctx.GlobalInt("register_ttl")); i > 0 {
+	if i := time.Duration(ctx.Int("register_ttl")); i > 0 {
 		srvOpts = append(srvOpts, micro.RegisterTTL(i*time.Second))
 	}
-	if i := time.Duration(ctx.GlobalInt("register_interval")); i > 0 {
+	if i := time.Duration(ctx.Int("register_interval")); i > 0 {
 		srvOpts = append(srvOpts, micro.RegisterInterval(i*time.Second))
 	}
 
@@ -102,7 +102,6 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 
 	// new proxy
 	var p proxy.Proxy
-	var s server.Server
 	var srv server.Server
 
 	// set endpoint
@@ -129,10 +128,11 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		case "http":
 			p = http.NewProxy(popts...)
 			// TODO: http server
-		case "grpc":
-			p = grpc.NewProxy(popts...)
-			s = sgrpc.NewServer()
-			srv = sgrpc.NewServer(
+		case "mucp":
+			popts = append(popts, proxy.WithClient(mucli.NewClient()))
+			p = mucp.NewProxy(popts...)
+
+			srv = server.NewServer(
 				server.Address(Address),
 				// reset registry to memory
 				server.Registry(rmem.NewRegistry()),
@@ -143,8 +143,8 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 			)
 		default:
 			p = mucp.NewProxy(popts...)
-			s = smucp.NewServer()
-			srv = server.NewServer(
+
+			srv = sgrpc.NewServer(
 				server.Address(Address),
 				// reset registry to memory
 				server.Registry(rmem.NewRegistry()),
@@ -162,11 +162,6 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		log.Logf("Proxy [%s] serving protocol: %s", p.String(), Protocol)
 	}
 
-	// prepend the server
-	if s != nil {
-		srvOpts = append([]micro.Option{micro.Server(s)}, srvOpts...)
-	}
-
 	// new service
 	service := micro.NewService(srvOpts...)
 
@@ -178,7 +173,7 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 		server.WithRouter(muxer),
 	)
 
-	// Start the server
+	// Start the proxy server
 	if err := srv.Start(); err != nil {
 		log.Fatal(err)
 	}
@@ -194,39 +189,40 @@ func run(ctx *cli.Context, srvOpts ...micro.Option) {
 	}
 }
 
-func Commands(options ...micro.Option) []cli.Command {
-	command := cli.Command{
+func Commands(options ...micro.Option) []*cli.Command {
+	command := &cli.Command{
 		Name:  "proxy",
 		Usage: "Run the service proxy",
 		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:   "router",
-				Usage:  "Set the router to use e.g default, go.micro.router",
-				EnvVar: "MICRO_ROUTER",
+			&cli.StringFlag{
+				Name:    "router",
+				Usage:   "Set the router to use e.g default, go.micro.router",
+				EnvVars: []string{"MICRO_ROUTER"},
 			},
-			cli.StringFlag{
-				Name:   "router_address",
-				Usage:  "Set the router address",
-				EnvVar: "MICRO_ROUTER_ADDRESS",
+			&cli.StringFlag{
+				Name:    "router_address",
+				Usage:   "Set the router address",
+				EnvVars: []string{"MICRO_ROUTER_ADDRESS"},
 			},
-			cli.StringFlag{
-				Name:   "address",
-				Usage:  "Set the proxy http address e.g 0.0.0.0:8081",
-				EnvVar: "MICRO_PROXY_ADDRESS",
+			&cli.StringFlag{
+				Name:    "address",
+				Usage:   "Set the proxy http address e.g 0.0.0.0:8081",
+				EnvVars: []string{"MICRO_PROXY_ADDRESS"},
 			},
-			cli.StringFlag{
-				Name:   "protocol",
-				Usage:  "Set the protocol used for proxying e.g mucp, grpc, http",
-				EnvVar: "MICRO_PROXY_PROTOCOL",
+			&cli.StringFlag{
+				Name:    "protocol",
+				Usage:   "Set the protocol used for proxying e.g mucp, grpc, http",
+				EnvVars: []string{"MICRO_PROXY_PROTOCOL"},
 			},
-			cli.StringFlag{
-				Name:   "endpoint",
-				Usage:  "Set the endpoint to route to e.g greeter or localhost:9090",
-				EnvVar: "MICRO_PROXY_ENDPOINT",
+			&cli.StringFlag{
+				Name:    "endpoint",
+				Usage:   "Set the endpoint to route to e.g greeter or localhost:9090",
+				EnvVars: []string{"MICRO_PROXY_ENDPOINT"},
 			},
 		},
-		Action: func(ctx *cli.Context) {
+		Action: func(ctx *cli.Context) error {
 			run(ctx, options...)
+			return nil
 		},
 	}
 
@@ -240,5 +236,5 @@ func Commands(options ...micro.Option) []cli.Command {
 		}
 	}
 
-	return []cli.Command{command}
+	return []*cli.Command{command}
 }

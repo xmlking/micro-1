@@ -9,19 +9,20 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro/client"
-	cbytes "github.com/micro/go-micro/codec/bytes"
-	"github.com/micro/go-micro/config/cmd"
-	"github.com/micro/go-micro/metadata"
-	"github.com/micro/go-micro/registry"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2/client"
+	cbytes "github.com/micro/go-micro/v2/codec/bytes"
+	"github.com/micro/go-micro/v2/config/cmd"
+	"github.com/micro/go-micro/v2/metadata"
+	"github.com/micro/go-micro/v2/registry"
 
-	proto "github.com/micro/go-micro/debug/service/proto"
+	proto "github.com/micro/go-micro/v2/debug/service/proto"
 
-	dns "github.com/micro/micro/network/dns/proto/dns"
+	dns "github.com/micro/micro/v2/network/dns/proto/dns"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/serenize/snaker"
@@ -471,11 +472,16 @@ func NetworkRoutes(c *cli.Context) ([]byte, error) {
 		link := route["link"]
 		metric := route["metric"]
 
+		var metInt int64
+		if metric != nil {
+			metInt, _ = strconv.ParseInt(route["metric"].(string), 10, 64)
+		}
+
 		// set max int64 metric to infinity
-		if f, ok := metric.(float64); ok && f == float64(math.MaxInt64) {
+		if metInt == math.MaxInt64 {
 			metric = "∞"
 		} else {
-			metric = fmt.Sprintf("%.f", route["metric"])
+			metric = fmt.Sprintf("%d", metInt)
 		}
 
 		sortedRoutes = append(sortedRoutes, []string{

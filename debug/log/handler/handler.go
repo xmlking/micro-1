@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/micro/go-micro/debug/log"
-	"github.com/micro/go-micro/errors"
-	pb "github.com/micro/micro/debug/log/proto"
+	"github.com/micro/go-micro/v2/debug/log"
+	"github.com/micro/go-micro/v2/errors"
+	pb "github.com/micro/micro/v2/debug/log/proto"
 )
 
 type Log struct {
@@ -44,7 +44,7 @@ func (l *Log) Read(ctx context.Context, req *pb.ReadRequest, rsp *pb.ReadRespons
 		rsp.Records = append(rsp.Records, &pb.Record{
 			Timestamp: rec.Timestamp.Unix(),
 			Metadata:  rec.Metadata,
-			Value:     rec.Value.(string),
+			Message:   rec.Message.(string),
 		})
 	}
 

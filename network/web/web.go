@@ -14,10 +14,10 @@ import (
 	"text/tabwriter"
 	"text/template"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro/config/cmd"
-	pb "github.com/micro/go-micro/network/service/proto"
-	"github.com/micro/go-micro/web"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2/config/cmd"
+	pb "github.com/micro/go-micro/v2/network/service/proto"
+	"github.com/micro/go-micro/v2/web"
 )
 
 func color() string {
@@ -69,7 +69,7 @@ func Run(ctx *cli.Context) {
 		web.Name("go.micro.web.network"),
 	}
 
-	address := ctx.GlobalString("server_address")
+	address := ctx.String("server_address")
 	if len(address) > 0 {
 		opts = append(opts, web.Address(address))
 	}
@@ -90,7 +90,7 @@ func Run(ctx *cli.Context) {
 		ips, _ := net.LookupHost("network.micro.mu")
 		coreMap := make(map[string]bool)
 		for _, ip := range ips {
-			coreMap[ip+":30038"] = true
+			coreMap[ip+":8085"] = true
 		}
 
 		var graph *pb.Peer
@@ -176,7 +176,7 @@ func Run(ctx *cli.Context) {
 		// range over the graph and build the data set for each
 		for address, nodes := range nodeGraph {
 			data := make([]string, len(coreNodes))
-			address = strings.TrimSuffix(address, ":30038")
+			address = strings.TrimSuffix(address, ":8085")
 
 			// set all zeros
 			for i := 0; i < len(coreNodes); i++ {
@@ -191,7 +191,7 @@ func Run(ctx *cli.Context) {
 
 			// walk all the
 			for _, node := range nodes {
-				node = strings.TrimSuffix(node, ":30038")
+				node = strings.TrimSuffix(node, ":8085")
 
 				// skip self
 				if node == address {

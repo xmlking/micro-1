@@ -8,23 +8,24 @@ import (
 	"os"
 	"strings"
 
-	"github.com/micro/cli"
-	"github.com/micro/go-micro/client"
-	cbytes "github.com/micro/go-micro/codec/bytes"
-	"github.com/micro/go-micro/config/cmd"
-	clic "github.com/micro/micro/internal/command/cli"
+	"github.com/micro/cli/v2"
+	"github.com/micro/go-micro/v2/client"
+	cbytes "github.com/micro/go-micro/v2/codec/bytes"
+	"github.com/micro/go-micro/v2/config/cmd"
+	clic "github.com/micro/micro/v2/internal/command/cli"
 )
 
 type exec func(*cli.Context, []string) ([]byte, error)
 
-func printer(e exec) func(*cli.Context) {
-	return func(c *cli.Context) {
-		rsp, err := e(c, c.Args())
+func Print(e exec) func(*cli.Context) error {
+	return func(c *cli.Context) error {
+		rsp, err := e(c, c.Args().Slice())
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		fmt.Printf("%s\n", string(rsp))
+		return nil
 	}
 }
 
@@ -100,6 +101,12 @@ func getService(c *cli.Context, args []string) ([]byte, error) {
 }
 
 func callService(c *cli.Context, args []string) ([]byte, error) {
+	return clic.CallService(c, args)
+}
+
+// netCall calls services through the network
+func netCall(c *cli.Context, args []string) ([]byte, error) {
+	os.Setenv("MICRO_PROXY", "go.micro.network")
 	return clic.CallService(c, args)
 }
 

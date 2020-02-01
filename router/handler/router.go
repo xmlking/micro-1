@@ -5,9 +5,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/micro/go-micro/errors"
-	"github.com/micro/go-micro/router"
-	pb "github.com/micro/go-micro/router/service/proto"
+	"github.com/micro/go-micro/v2/errors"
+	"github.com/micro/go-micro/v2/router"
+	pb "github.com/micro/go-micro/v2/router/service/proto"
 )
 
 // Router implements router handler
@@ -41,15 +41,6 @@ func (r *Router) Lookup(ctx context.Context, req *pb.LookupRequest, resp *pb.Loo
 	return nil
 }
 
-// Solicit triggers full routing table advertisement
-func (r *Router) Solicit(ctx context.Context, req *pb.Request, resp *pb.Response) error {
-	if err := r.Router.Solicit(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Advertise streams router advertisements
 func (r *Router) Advertise(ctx context.Context, req *pb.Request, stream pb.Router_AdvertiseStream) error {
 	advertChan, err := r.Router.Advertise()
@@ -70,6 +61,7 @@ func (r *Router) Advertise(ctx context.Context, req *pb.Request, stream pb.Route
 				Metric:  event.Route.Metric,
 			}
 			e := &pb.Event{
+				Id:        event.Id,
 				Type:      pb.EventType(event.Type),
 				Timestamp: event.Timestamp.UnixNano(),
 				Route:     route,
@@ -112,6 +104,7 @@ func (r *Router) Process(ctx context.Context, req *pb.Advert, rsp *pb.ProcessRes
 		}
 
 		events[i] = &router.Event{
+			Id:        event.Id,
 			Type:      router.EventType(event.Type),
 			Timestamp: time.Unix(0, event.Timestamp),
 			Route:     route,
@@ -133,28 +126,13 @@ func (r *Router) Process(ctx context.Context, req *pb.Advert, rsp *pb.ProcessRes
 	return nil
 }
 
-// Status returns router status
-func (r *Router) Status(ctx context.Context, req *pb.Request, rsp *pb.StatusResponse) error {
-	status := r.Router.Status()
-
-	rsp.Status = &pb.Status{
-		Code: status.Code.String(),
-	}
-
-	if status.Error != nil {
-		rsp.Status.Error = status.Error.Error()
-	}
-
-	return nil
-}
-
 // Watch streans routing table events
 func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Router_WatchStream) error {
 	watcher, err := r.Router.Watch()
 	if err != nil {
 		return errors.InternalServerError("go.micro.router", "failed creating event watcher: %v", err)
 	}
-
+	defer watcher.Stop()
 	defer stream.Close()
 
 	for {
@@ -178,6 +156,7 @@ func (r *Router) Watch(ctx context.Context, req *pb.WatchRequest, stream pb.Rout
 		}
 
 		tableEvent := &pb.Event{
+			Id:        event.Id,
 			Type:      pb.EventType(event.Type),
 			Timestamp: event.Timestamp.UnixNano(),
 			Route:     route,

@@ -40,12 +40,34 @@ var (
   <h1 style="vertical-align: middle;">
     <a href="/"><img src="https://micro.mu/logo.png" height=50px width=auto /></a> Debug
   </h1>
-  <p>&nbsp;</p>
+  <p>{{if .Name}}Service: {{.Name}}{{else}}&nbsp;{{end}}</p>
   <div id="content">
       <!--
       <div data-netdata="system.cpu" data-chart-library="sparkline" data-height="30" data-after="-600" data-sparkline-linecolor="#888"></div>
       -->
       <div id="graphs">
+  <div class="graph">
+      <div data-netdata="go_micro_services.micro_service_requests"
+    data-chart-library="dygraph"
+    data-width="100%"
+    data-height="300"
+    data-after="-600"{{ if .Service }}
+    data-dimensions="{{.Service}}*"{{end}}
+    data-title="Requests"
+    ></div>
+  </div>
+
+  <div class="graph">
+      <div data-netdata="go_micro_services.micro_service_errors"
+    data-chart-library="dygraph"
+    data-width="100%"
+    data-height="300"
+    data-after="-600"{{ if .Service }}
+    data-dimensions="{{.Service}}*"{{end}}
+    data-title="Errors"
+    ></div>
+  </div>
+
   <div class="graph">
       <div data-netdata="go_micro_services.micro_service_memory"
     data-chart-library="dygraph"
@@ -64,7 +86,7 @@ var (
     data-height="300"
     data-after="-600"{{ if .Service }}
     data-dimensions="{{.Service}}*"{{end}}
-    data-title="Go Routines"
+    data-title="Concurrency"
     ></div>
   </div>
 
@@ -75,7 +97,7 @@ var (
     data-height="300"
     data-after="-600"{{ if .Service }}
     data-dimensions="{{.Service}}*"{{end}}
-    data-title="GC Pause"
+    data-title="Garbage Collection"
     ></div>
   </div>
 
@@ -89,6 +111,7 @@ var (
     data-title="Uptime"
     ></div>
   </div>
+ 
     </div>
   </div>
   <script type="text/javascript" src="/debug/dashboard.js?v20190902-0"></script>
@@ -119,12 +142,18 @@ var (
   <h1 style="vertical-align: middle; font-weight: 500;">
     <a href="/"><img src="https://micro.mu/logo.png" height=50px width=auto style="vertical-align: middle;"/></a> Debug Log
   </h1>
-  <p>&nbsp;</p>
-  <div id="content">
+  <p>{{if .Name}}Service: {{.Name}}{{else}}&nbsp;{{end}}</p>
+  <div id="content" style="height: calc(100% - 120px); overflow: scroll;">
     {{ range $index, $el := .Records }}
-    <div>{{.Value}}</div>
+    <div>{{.}}</div>
     {{end}}
   </div>
+<script type="text/javascript">
+    window.onload=function () {
+         var objDiv = document.getElementById("content");
+         objDiv.scrollTop = objDiv.scrollHeight;
+    }
+</script>
 </body>
 </html>
 `
